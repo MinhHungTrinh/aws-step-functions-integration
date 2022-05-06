@@ -19,7 +19,13 @@ function getRandomInt(max) {
  * @returns {Object} object - Object containing details of the stock selling transaction
  * 
  */
+function sleep(ms) {
+    return new Promise((resolve) => {
+        setTimeout(resolve, ms);
+    });
+}
 exports.lambdaHandler = async (event, context) => {
+    await sleep(30000);
     // Get the price of the stock provided as input
     const body = JSON.parse(event.body)
     const stock_price = body.stock_price

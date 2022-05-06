@@ -5,3 +5,4 @@ samconfig.toml
 .vscode
 functions/.DS_Store
 .DS_Store
+.aws-sam

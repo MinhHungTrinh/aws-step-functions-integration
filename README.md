@@ -1,10 +1,11 @@
-# Example Step Functions API Gateway integration 
+# Step Functions integration
 
+## Example Step Functions API Gateway integration
 The new Step Functions integration with API Gateway provides an additional resource type, ` arn:aws:states:::apigateway:invoke ` and can be used with both Standard and Express workflows. It allows customers to call API Gateway REST APIs and API Gateway.
 
 See this [AWS compute blog](https://aws.amazon.com/blogs/compute/introducing-amazon-api-gateway-service-integration-for-aws-step-functions/) for more information on the Step Functions service integration with API Gateway.
 
-![API Gateway Step Fcuntions service integration](/repoResources/stateMachine.png)
+![API Gateway Step Fcuntions service integration](/repoResources/stateMachineAPIGatewayIntegration.png)
  
 This project contains source code and supporting files for a serverless application that you can deploy with the SAM CLI. It includes the following files and folders:
 
@@ -15,6 +16,23 @@ This project contains source code and supporting files for a serverless applicat
 This application creates a mock stock trading workflow which runs on a pre-defined schedule (note that the schedule is disabled by default to avoid incurring charges). It demonstrates the power of Step Functions to orchestrate Lambda functions and other AWS resources to form complex and robust workflows, coupled with event-driven development using Amazon EventBridge.
 
 When the workflow is run, a Lambda function is invoked via a GET request from API Gateway to the /check resource. This returns a random stock value between 1 and 100.  This value is evaluated in the Buy or Sell choice step, depending on if it is less or more than 50. The Sell and Buy states use the API Gateway integration to invoke a Lambda function, with a POST method. A stock_value is provided in the POST request body. A transaction_result is returned in the Response Body and provided to the next state. The final state writes a log of the transition to a DynamoDB table.
+
+**Test:**
+
+Get Start: http://api-gateway-endpoint/prod/invoke
+Get Progress: http://api-gateway-endpoint/prod/invoke?executionArn={executionArn}
+
+
+## Example Step Functions Lambda integration
+
+![API Gateway Step Fcuntions service integration](/repoResources/stateMachineLambdaIntegration.png)
+
+The structure is the same with API Gateway Integration.
+
+**Test:**
+
+Get Start: http://api-gateway-endpoint/prod/download-file
+Get Progress: http://api-gateway-endpoint/prod/download-file?executionArn={executionArn}
 
 ## Deploy the sample application
 
@@ -30,8 +48,8 @@ To build and deploy your application for the first time, run the following in yo
 
 1.	Clone the GitHub repository:
 ```bash
-$ git clone https://github.com/aws-samples/example-step-functions-integration-api-gateway.git
-$ cd example-step-functions-integration-api-gateway 
+$ git clone https://github.com/MinhHungTrinh/aws-step-functions-integration.git
+$ cd aws-step-functions-integration 
 ```
 
 2.	Deploy the application resources:

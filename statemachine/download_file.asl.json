@@ -1,0 +1,26 @@
+{
+    "Comment": "A state machine that does mock file generating.",
+    "StartAt": "Generate File",
+    "States": {
+        "Generate File": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "OutputPath": "$.Payload",
+            "Parameters": {
+                "Payload.$": "$",
+                "FunctionName": "${GenerateFileFunctionArn}"
+            },
+            "Retry": [
+                {
+                    "ErrorEquals": [
+                        "States.TaskFailed"
+                    ],
+                    "IntervalSeconds": 2,
+                    "MaxAttempts": 3,
+                    "BackoffRate": 1
+                }
+            ],
+            "End": true
+        }
+    }
+}

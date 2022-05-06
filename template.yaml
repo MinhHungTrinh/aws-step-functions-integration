@@ -17,14 +17,75 @@ Parameters:
     Default: /check
 
 Resources:
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: "/"
+      Policies:
+        - PolicyName: AllowAccessBatchJob
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: "*"
+                Effect: Allow
+
+  InvokeLambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: "/"
+      Policies:
+        - PolicyName: AllowAccessBatchJob
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: "*"
+                Effect: Allow
+              - Action:
+                  - states:DescribeExecution
+                  - states:SendTaskSuccess
+                  - states:SendTaskFailure
+                  - states:DescribeStateMachine
+                  - states:StartExecution
+                  - states:StopExecution
+                  - states:StartSyncExecution
+                  - states:SendTaskHeartbeat
+                Resource: "*"
+                Effect: Allow
+
   StockTradingStateMachine:
     Type: AWS::Serverless::StateMachine # More info about State Machine Resource: https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-statemachine.html
     Properties:
       DefinitionUri: statemachine/stock_trader.asl.json
       DefinitionSubstitutions:
-        StockCheckPath: !Ref CheckPath
-        StockSellPath: !Ref SellPath
-        StockBuyPath: !Ref BuyPath
+        StockCheckPath: /check
+        StockSellPath: /sell
+        StockBuyPath: /buy
         APIEndPoint: !Sub "${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com"
         DDBPutItem: !Sub arn:${AWS::Partition}:states:::dynamodb:putItem
         DDBTable: !Ref TransactionTable
@@ -45,12 +106,29 @@ Resources:
         - DynamoDBWritePolicy:
             TableName: !Ref TransactionTable
 
+  InvokeFunction:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-function.html
+    Properties:
+      CodeUri: functions/invoke/
+      Handler: app.lambdaHandler
+      Runtime: nodejs12.x
+      Timeout: 60
+      Role: !GetAtt InvokeLambdaExecutionRole.Arn
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            Path: /invoke
+            Method: GET
+
   StockCheckerFunction:
     Type: AWS::Serverless::Function # More info about Function Resource: https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-function.html
     Properties:
       CodeUri: functions/stock-checker/
       Handler: app.lambdaHandler
       Runtime: nodejs12.x
+      Timeout: 60
+      Role: !GetAtt LambdaExecutionRole.Arn
       Events:
         Api:
           Type: Api
@@ -64,6 +142,8 @@ Resources:
       CodeUri: functions/stock-seller/
       Handler: app.lambdaHandler
       Runtime: nodejs12.x
+      Timeout: 60
+      Role: !GetAtt LambdaExecutionRole.Arn
       Events:
         Api:
           Type: Api
@@ -77,6 +157,8 @@ Resources:
       CodeUri: functions/stock-buyer/
       Handler: app.lambdaHandler
       Runtime: nodejs12.x
+      Timeout: 60
+      Role: !GetAtt LambdaExecutionRole.Arn
       Events:
         Api:
           Type: Api
@@ -94,6 +176,49 @@ Resources:
         ReadCapacityUnits: 1
         WriteCapacityUnits: 1
 
+  DownloadFileStateMachine:
+    Type: AWS::Serverless::StateMachine
+    Properties:
+      DefinitionUri: statemachine/download_file.asl.json
+      DefinitionSubstitutions:
+        GenerateFileFunctionArn: !GetAtt GenerateFileFunction.Arn
+      Policies: # Find out more about SAM policy templates: https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-policy-templates.html
+        - LambdaInvokePolicy:
+            FunctionName: !Ref GenerateFileFunction
+
+  DownloadFileFunction:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-function.html
+    Properties:
+      CodeUri: functions/download-file/
+      Handler: app.lambdaHandler
+      Runtime: nodejs12.x
+      Timeout: 60
+      Role: !GetAtt InvokeLambdaExecutionRole.Arn
+      Environment:
+        Variables:
+          DownloadFileStateMachineArn: !Ref DownloadFileStateMachine
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            Path: /download-file
+            Method: GET
+
+  GenerateFileFunction:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-function.html
+    Properties:
+      CodeUri: functions/generate-file/
+      Handler: app.lambdaHandler
+      Runtime: nodejs12.x
+      Timeout: 60
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            Path: /generate-file
+            Method: GET
+
 Outputs:
   # StockTradingStateMachineHourlyTradingSchedule is an implicit Schedule event rule created out of Events key under Serverless::StateMachine
   # Find out more about other implicit resources you can reference within SAM
@@ -101,9 +226,9 @@ Outputs:
   StockTradingStateMachineArn:
     Description: "Stock Trading state machine ARN"
     Value: !Ref StockTradingStateMachine
-  StockTradingStateMachineRole:
-    Description: "IAM Role created for Stock Trading state machine based on the specified SAM Policy Templates"
-    Value: !GetAtt StockTradingStateMachineRole.Arn
+#  StockTradingStateMachineRole:
+#    Description: "IAM Role created for Stock Trading state machine based on the specified SAM Policy Templates"
+#    Value: !GetAtt StockTradingStateMachineRole.Arn
   WebEndpoint:
     Description: "API Gateway endpoint URL for Prod stage"
     Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"

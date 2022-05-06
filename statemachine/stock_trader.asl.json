@@ -57,7 +57,7 @@
                     "BackoffRate": 1
                 }
             ],
-            "Next": "Record Transaction"
+            "End": true
         },
         "Buy Stock": {
             "Type": "Task",
@@ -78,41 +78,6 @@
                     "IntervalSeconds": 2,
                     "MaxAttempts": 3,
                     "BackoffRate": 1
-                }
-            ],
-            "Next": "Record Transaction"
-        },
-        "Record Transaction": {
-            "Type": "Task",
-            "Resource": "${DDBPutItem}",
-            "Parameters": {
-                "TableName": "${DDBTable}",
-                "Item": {
-                    "Id": {
-                        "S.$": "$.ResponseBody.id"
-                    },
-                    "Type": {
-                        "S.$": "$.ResponseBody.type"
-                    },
-                    "Price": {
-                        "N.$": "$.ResponseBody.price"
-                    },
-                    "Quantity": {
-                        "N.$": "$.ResponseBody.qty"
-                    },
-                    "Timestamp": {
-                        "S.$": "$.ResponseBody.timestamp"
-                    }
-                }
-            },
-            "Retry": [
-                {
-                    "ErrorEquals": [
-                        "States.TaskFailed"
-                    ],
-                    "IntervalSeconds": 20,
-                    "MaxAttempts": 5,
-                    "BackoffRate": 10
                 }
             ],
             "End": true
